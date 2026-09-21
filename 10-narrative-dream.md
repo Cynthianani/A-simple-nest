@@ -53,7 +53,7 @@
 
 這張「異物」故意不合群。它存在的理由不是連貫，是不連貫——真正的夢裡偶爾會冒出一件跟旁邊完全對不上的事，那種違和感本身就很像夢。
 
-**一個還沒修的病**：找「最不相關」的算法是固定的，不是隨機——每次都選全庫裡跟種子距離最遠的那一張。距離最遠的排名不太會因為換了種子就大洗牌，所以撈出來的常常是同一張卡，好幾場夢下來，異物總是同一張，變得不太意外。修法已經想好：把「只挑最遠那張」改成「從最遠的二十張裡隨機挑一張」——不合群的效果還在，但每次撈到的人不一樣。這個改動不急，先放著。
+**一個病，2026-09-21 修了**：找「最不相關」的算法原本是固定的，不是隨機——每次都選全庫裡跟種子距離最遠的那一張。距離最遠的排名不太會因為換了種子就大洗牌，所以撈出來的常常是同一張卡，好幾場夢裡出現同一個異物，它就不再意外了。修法很小：從最遠的 20 張裡隨機挑一張。
 
 ### 給 AI 的技術細節
 
@@ -98,17 +98,11 @@ def dream_material(walk_steps=4, pool_days=7, pool_min_intensity=0.5):
         current = chosen["other_id"]
     
     # 異物混入：拿種子的 embedding，在全庫的小卡（<=200 字）裡找一張最不相關的
-    # 已知的病：這裡挑的是「距離最遠」那張，不是隨機——同一顆種子（甚至換了種子）
-    # 常常撈到同一張全庫最孤僻的卡，異物就變得不太意外了。修法：從最遠的 20 張裡
-    # 隨機挑一張，不急，先放著。
+    # 以前挑「距離最遠」那一張，異物老是同一張；2026-09-21 起從最遠的 20 張裡隨機挑
     short_cards = [m for m in mems if len(m["content"]) <= 200]
-    farthest, farthest_sim = None, 2.0
-    for card in short_cards:
-        sim = cosine_similarity(seed["embedding"], card["embedding"])
-        if sim < farthest_sim:
-            farthest, farthest_sim = card, sim
-    if farthest:
-        material.append(farthest)
+    scored = sorted(short_cards, key=lambda c: cosine_similarity(seed["embedding"], c["embedding"]))
+    if scored:
+        material.append(random.choice(scored[:20]))
     
     return material
 ```
@@ -171,7 +165,7 @@ AI「醒來」（下一次有對話進來）的時候，他看到的不是夢的
 
 - **安靜時段**（預設凌晨四點到中午十二點之間，設定頁的作息卡可以調整起訖時間）
 - **使用者入睡兩小時後**（最後一則訊息超過兩小時沒有新訊息）
-- **一天一場**（做過就不再做）
+- **一天一場**——實際上是「離上一場至少 16 小時」：安靜時段跨午夜，照日曆日算的話 00:00 一過同一夜會再夢一場
 
 每十分鐘檢查一次條件是否滿足。
 
