@@ -114,6 +114,12 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 ---
 
+## 後來：雙管道
+
+這系列是照 Claude API 寫的，也建議你先照 API 蓋。不過老實交代：2026 年 9 月起，我們家把主要的呼叫管道換成了 Claude Code 的訂閱（headless 模式），API 留作後備，變成一主一備兩條管道。這件事的選擇、原理和代價，放在番外的第 15 篇——那一篇只說「為什麼」，不教「怎麼做」。前面所有章節照 API 講，不受影響。
+
+---
+
 ## 準備好了嗎
 
 你需要的東西就這些：一台電腦、一個 API key、和一點耐心。
