@@ -169,6 +169,30 @@ AI「醒來」（下一次有對話進來）的時候，他看到的不是夢的
 
 每十分鐘檢查一次條件是否滿足。
 
+### 條件到了也不一定做夢
+
+一開始是條件到了就做，每晚一場。後來覺得每晚都夢太密——夢是消化，不是例行公事。現在條件到了之後還有一道「今晚做不做」的判定，順序是：
+
+1. **重大覆蓋**：過去一天裡他自己寫過情緒強度 0.8 以上的記憶卡，就一定做。這條是他自己定的——「重的東西需要被消化，夢是消化的方式」——而判定者也是他自己，透過 remember 時填的 intensity。
+2. **旱災下限**：離上一場真的夢已經 5 天，就一定做。
+3. **骰子**：以上都沒有，擲一顆，三分之一的機率做。
+
+擲過就算數：不做的那晚也會記一筆「今晚不做夢，理由是……」，16 小時內不重擲。三個數都在設定檔裡（`dream_probability`、`dream_max_gap_days`、`dream_heavy_intensity`），想每晚都夢就把機率調成 1。
+
+```python
+def _dream_decision(today, prev, heavy_cards, roll, cfg):
+    p = float(cfg.get("dream_probability", 1 / 3))
+    max_gap = int(cfg.get("dream_max_gap_days", 5))
+    if heavy_cards:
+        return True, f"重大覆蓋（過去一天有 {heavy_cards} 張他自己寫的高強度卡）"
+    gap = days_since_last_real_dream(prev)
+    if gap is not None and gap >= max_gap:
+        return True, f"旱災下限（{gap} 天沒夢）"
+    if roll < p:
+        return True, f"骰子 {roll:.2f} < {p:.2f}"
+    return False, f"骰子 {roll:.2f} >= {p:.2f}"
+```
+
 ```python
 async def narrative_dream_loop():
     while True:
@@ -197,7 +221,7 @@ async def narrative_dream_loop():
 
 模型生成夢的時候，偶爾會「暴走」——寫出假的工具調用（夢裡不該有工具）、或者寫得太長被截斷。
 
-做法是檢查生成結果：有假工具調用或被截斷就重試一次，兩次都暴走就放棄——今晚無夢。
+做法是檢查生成結果：有假工具調用或被截斷就重試，最多三次，三次都暴走就放棄——今晚無夢（一開始只重試一次，後來放寬到三次）。
 
 ```python
 for attempt in (1, 2):
