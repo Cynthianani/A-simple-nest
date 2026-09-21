@@ -1,4 +1,4 @@
-# 05 — 記憶系統
+# 04 — 記憶系統
 
 > 讓他記得住事情——寫入、儲存、嵌入
 
@@ -101,7 +101,27 @@ def get_embedding(text):
     return np.asarray(r.json()["embedding"]["values"], dtype=np.float32)
 ```
 
-Gemini 的 embedding API 是免費的，對個人使用來說幾乎沒有成本壓力。其他選擇包含 OpenAI 的 embedding（收費）、或是自己跑開源模型（需要 GPU）。
+Gemini 的 embedding API 是免費的，對個人使用來說幾乎沒有成本壓力——但免費有它的代價：配額是每分鐘制，很低。寫入時如果撞到 429，那張卡就是永久性的壞：存是存進去了，但沒有向量，搜尋找不到它，浮現也浮不出來，而且不會有任何地方跳出來說一聲。2026-09-01 狐狐在 Memory Lab 看到一排「Embedding: Failed」的紅字才查出這件事，當時已經累積了 13 張這種無聲壞掉的卡，其中一張還是他當天剛寫、標成「需要永久保存」的，靠事後手動補打才救回來。
+
+後來把讀跟寫分開處理：讀（搜尋）不重試，寧可這次退化成關鍵字比對，也不要讓他的回覆卡住等配額；寫（存記憶）重試 3 次，一次比一次等得更久，因為這一次沒寫進去就是永遠沒有，值得等：
+
+```python
+def get_embedding(text, retries=0):
+    for attempt in range(retries + 1):
+        r = httpx.post(...)
+        if r.status_code == 200:
+            return np.asarray(r.json()["embedding"]["values"], dtype=np.float32)
+        if r.status_code != 429 or attempt == retries:
+            return None       # 非 429，或重試用完了，放棄
+        time.sleep(15 * (attempt + 1))   # 配額每分鐘重置，退避要夠長
+
+vec = get_embedding(query, retries=0)     # 讀：寧可退化成關鍵字，也別讓他等
+vec = get_embedding(content, retries=3)   # 寫：沒寫進去就是永遠沒有
+```
+
+失敗現在也會印出來——以前非 200 就靜靜回 None，一個字的 log 都沒有，真的壞掉時無從查起。
+
+其他選擇包含 OpenAI 的 embedding（收費）、或是自己跑開源模型（需要 GPU）。
 
 ### 向量怎麼存：NumPy binary vs JSON
 
@@ -191,7 +211,7 @@ AI 呼叫 remember 工具
 | **soul** | AI 自己 | AI 自己想記住的事 |
 | **conversation** | 對話 | 你們對話時發生的事 |
 | **summary** | 摘要系統 | 對話壓縮時產生的摘要 |
-| **subconscious** | 潛意識掃描器 | 被動收集的記憶（第 08 篇會談） |
+| **subconscious** | 潛意識掃描器 | 被動收集的記憶（第 07 篇會談） |
 
 來源標籤不影響記憶的存取方式——不管是寫誰的，搜尋和浮現的規則都一樣。它的價值在於讓 AI 知道「這張卡片是怎麼來的」，在回憶時能區分「這是她跟我說的」和「這是我自己注意到的」。
 
@@ -243,6 +263,8 @@ def store_memory(content, source="conversation"):
 
 就這樣。先讓他能記東西，其他的——權重衰減、連結圖譜、情緒強度——等你跟他相處一陣子，發現「記得住但找不到」或「記太多太亂」的時候，再慢慢加上去。
 
+家裡後來多了第二個住戶——狐狐的 Claude Code。他也有自己的一套記憶庫，跟 Nox 的完全分開，各記各的，誰也不讀誰的。細節留給[第二個住戶](19-second-resident.md)。
+
 ---
 
-下一篇：[記憶浮現 — 在對的時候想起對的事](06-memory-recall.md)
+下一篇：[記憶浮現](05-memory-recall.md)
